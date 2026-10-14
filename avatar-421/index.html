@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>421 · SVG 多风格</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; gap: 16px;
+    font-family: -apple-system, "PingFang SC", sans-serif; background: #1d1d1f; color: #eee;
+    padding: 24px; box-sizing: border-box;
+  }
+  .stage { width: min(80vmin, 640px); aspect-ratio: 1; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px #0008; }
+  .stage svg { width: 100%; height: 100%; display: block; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .bar button {
+    border: 1px solid #555; background: #2a2a2d; color: #eee; border-radius: 999px;
+    padding: 6px 14px; font-size: 14px; cursor: pointer;
+  }
+  .bar button[aria-pressed="true"] { background: #eee; color: #111; border-color: #eee; }
+  .hint { font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+<div class="stage">
+<svg id="art" class="flat" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<style>
+  /* ===== Theme tokens ===== */
+  .flat {
+    --sky1:#7fa9c8; --sky2:#bcd2df; --mtnA:#6f7c63; --mtnB:#8b7a52; --mtnC:#5f7048; --bush:#7d9a48; --flower:#e9c45a;
+    --robe:#a59f80; --robeShade:#8c8668; --collar:#f3f1ea; --scarfA:#4b5568; --scarfB:#3c7b78; --scarfC:#e9e6dc;
+    --skin:#c99877; --skinShade:#ad7c5d; --skinDeep:#8e5f45; --cloth:#c7c39c; --clothShade:#a9a57f;
+    --hair:#2b221d; --brow:#2f2620; --eyeW:#efe4dc; --iris:#4a2a1a; --pupil:#140b07; --hi:#fff;
+    --stache:#3a2a22; --lipU:#a8483e; --lipL:#b85a4c; --lipHi:#f2c9bb; --dark:#3a1d16;
+    --line:#5a3a2c; --sw:0; --dline:#5a3a2c; --dw:3; --lipLine:#6e2820; --lw:3;
+  }
+  .line {
+    --sky1:#fbf8f1; --sky2:#fbf8f1; --mtnA:#fbf8f1; --mtnB:#fbf8f1; --mtnC:#fbf8f1; --bush:#fbf8f1; --flower:#fbf8f1;
+    --robe:#fbf8f1; --robeShade:#fbf8f1; --collar:#fff; --scarfA:#fbf8f1; --scarfB:#d9d6cf; --scarfC:#222;
+    --skin:#fff; --skinShade:#fff; --skinDeep:#eee; --cloth:#fff; --clothShade:#fff;
+    --hair:#222; --brow:#222; --eyeW:#fff; --iris:#222; --pupil:#000; --hi:#fff;
+    --stache:#222; --lipU:#fff; --lipL:#fff; --lipHi:#999; --dark:#222;
+    --line:#222; --sw:4; --dline:#222; --dw:3.5; --lipLine:#222; --lw:4.5;
+  }
+  .pop {
+    --sky1:#ffd400; --sky2:#ffd400; --mtnA:#00b3e6; --mtnB:#ff4fa3; --mtnC:#16c172; --bush:#16c172; --flower:#fff;
+    --robe:#ff8a00; --robeShade:#e06a00; --collar:#fff; --scarfA:#1b3fd1; --scarfB:#e4002b; --scarfC:#fff;
+    --skin:#ffb38a; --skinShade:#f08f68; --skinDeep:#d9704c; --cloth:#9fe870; --clothShade:#6cc944;
+    --hair:#111; --brow:#111; --eyeW:#fff; --iris:#1b3fd1; --pupil:#111; --hi:#fff;
+    --stache:#111; --lipU:#e4002b; --lipL:#ff2d55; --lipHi:#fff; --dark:#111;
+    --line:#111; --sw:8; --dline:#111; --dw:6; --lipLine:#111; --lw:8;
+  }
+  .ink {
+    --sky1:#f1ebdd; --sky2:#ece4d2; --mtnA:#a9a69c; --mtnB:#c6c1b3; --mtnC:#8d8a80; --bush:#b3b0a4; --flower:#c94a3a;
+    --robe:#d8d2c2; --robeShade:#bdb6a4; --collar:#f6f1e6; --scarfA:#5a5a58; --scarfB:#8a8984; --scarfC:#e9e3d4;
+    --skin:#f3ecdd; --skinShade:#e2d8c4; --skinDeep:#c8bca4; --cloth:#dcd6c4; --clothShade:#c4bda8;
+    --hair:#1a1a1a; --brow:#141414; --eyeW:#fbf7ee; --iris:#1c1c1c; --pupil:#000; --hi:#fbf7ee;
+    --stache:#1a1a1a; --lipU:#a8372b; --lipL:#bf4a3c; --lipHi:#f1d3c6; --dark:#1a1a1a;
+    --line:#1a1a1a; --sw:3.5; --dline:#1a1a1a; --dw:3; --lipLine:#1a1a1a; --lw:4;
+  }
+  .neon {
+    --sky1:#090718; --sky2:#1a0f3a; --mtnA:#120c2c; --mtnB:#0f0a24; --mtnC:#0d0a1f; --bush:#0d0a1f; --flower:#ffe600;
+    --robe:#140e30; --robeShade:#140e30; --collar:#140e30; --scarfA:#140e30; --scarfB:#00e5ff; --scarfC:#ff2bd6;
+    --skin:#170f35; --skinShade:#170f35; --skinDeep:#170f35; --cloth:#170f35; --clothShade:#170f35;
+    --hair:#3df5ff; --brow:#3df5ff; --eyeW:#170f35; --iris:#3df5ff; --pupil:#fff; --hi:#fff;
+    --stache:#3df5ff; --lipU:#ff2bd6; --lipL:#ff2bd6; --lipHi:#fff; --dark:#3df5ff;
+    --line:#3df5ff; --sw:4; --dline:#3df5ff; --dw:3; --lipLine:#ff2bd6; --lw:4;
+  }
+  .pixel { /* same palette as flat, pixelated by filter */
+    --sky1:#7fa9c8; --sky2:#bcd2df; --mtnA:#6f7c63; --mtnB:#8b7a52; --mtnC:#5f7048; --bush:#7d9a48; --flower:#e9c45a;
+    --robe:#a59f80; --robeShade:#8c8668; --collar:#f3f1ea; --scarfA:#4b5568; --scarfB:#3c7b78; --scarfC:#e9e6dc;
+    --skin:#c99877; --skinShade:#ad7c5d; --skinDeep:#8e5f45; --cloth:#c7c39c; --clothShade:#a9a57f;
+    --hair:#2b221d; --brow:#2f2620; --eyeW:#efe4dc; --iris:#4a2a1a; --pupil:#140b07; --hi:#fff;
+    --stache:#3a2a22; --lipU:#a8483e; --lipL:#b85a4c; --lipHi:#f2c9bb; --dark:#3a1d16;
+    --line:#2b1a12; --sw:3; --dline:#3a2418; --dw:4; --lipLine:#5a1d16; --lw:4;
+  }
+
+  /* ===== Element bindings ===== */
+  .s { stroke: var(--line); stroke-width: var(--sw); stroke-linejoin: round; stroke-linecap: round; }
+  .d { fill: none; stroke: var(--dline); stroke-width: var(--dw); stroke-linecap: round; stroke-linejoin: round; }
+  .mtnA { fill: var(--mtnA); } .mtnB { fill: var(--mtnB); } .mtnC { fill: var(--mtnC); }
+  .bush { fill: var(--bush); } .flower { fill: var(--flower); }
+  .robe { fill: var(--robe); } .robeShade { fill: var(--robeShade); }
+  .collar { fill: var(--collar); } .plaid { fill: url(#plaid); }
+  .skin { fill: var(--skin); } .skinShade { fill: var(--skinShade); } .skinDeep { fill: var(--skinDeep); }
+  .cloth { fill: var(--cloth); } .clothShade { fill: var(--clothShade); }
+  .hair { fill: var(--hair); } .brow { fill: var(--brow); }
+  .eyeW { fill: var(--eyeW); } .iris { fill: var(--iris); } .pupil { fill: var(--pupil); } .hi { fill: var(--hi); }
+  .stache { fill: var(--stache); } .lipU { fill: var(--lipU); } .lipL { fill: var(--lipL); }
+  .lipHi { fill: none; stroke: var(--lipHi); stroke-width: 7; stroke-linecap: round; opacity: .8; }
+  .dark { fill: var(--dark); }
+  .lipLine { stroke: var(--lipLine); stroke-width: var(--lw); stroke-linejoin: round; }
+
+  /* Theme-only decorations */
+  .halftone, .seal, .scan, .origImg { display: none; }
+  .orig .origImg { display: inline; }
+  .orig .fx, .orig .seal { display: none; }
+  .pop .halftone { display: inline; }
+  .ink .seal { display: inline; }
+  .neon .scan { display: inline; }
+
+  /* Theme-specific tweaks */
+  .flat .shade, .pixel .shade { opacity: .55; }
+  .line .shade, .neon .shade { display: none; }
+  .ink .shade { opacity: .5; }
+  .line .bgfill, .ink .bgfill { opacity: .9; }
+  .neon .lipU, .neon .lipL { fill: #3a0d3a; }
+  .neon .lipHi { stroke: #ff2bd6; }
+  .neon .s.cloth, .neon .d.cloth-d { stroke: #ffe600; }
+  .neon .s.robe, .neon .s.collar { stroke: #8a5cff; }
+  .neon .s.mtnA, .neon .s.mtnB, .neon .s.mtnC, .neon .s.bush { stroke: #5b2bd6; }
+  .neon .s.plaid { stroke: #ff2bd6; }
+  .pop .s.mtnA, .pop .s.mtnB, .pop .s.mtnC, .pop .s.bush { stroke-width: 6; }
+
+  /* Filters per theme */
+  .pixel .fx { filter: url(#pixelate); }
+  .ink .fx { filter: url(#rough); }
+  .neon .fx { filter: url(#glow); }
+</style>
+
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" style="stop-color:var(--sky1)"/>
+    <stop offset="1" style="stop-color:var(--sky2)"/>
+  </linearGradient>
+
+  <!-- Woven plaid of the neck scarf -->
+  <pattern id="plaid" width="44" height="44" patternUnits="userSpaceOnUse" patternTransform="rotate(-28)">
+    <rect width="44" height="44" style="fill:var(--scarfA)"/>
+    <rect y="14" width="44" height="10" style="fill:var(--scarfB)"/>
+    <rect x="26" width="8" height="44" style="fill:var(--scarfB);opacity:.7"/>
+    <path d="M4 6h12M4 34h12M24 6v6M38 30v8" style="stroke:var(--scarfC);stroke-width:3.5;stroke-linecap:round"/>
+  </pattern>
+
+  <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <circle cx="8" cy="8" r="3.2" fill="#e05a3a" opacity=".55"/>
+  </pattern>
+  <pattern id="dotsSky" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <circle cx="11" cy="11" r="4" fill="#ff9f00" opacity=".6"/>
+  </pattern>
+  <pattern id="scanlines" width="8" height="8" patternUnits="userSpaceOnUse">
+    <rect width="8" height="2" fill="#3df5ff" opacity=".07"/>
+  </pattern>
+
+  <!-- Shared shapes (reused by halftone overlay) -->
+  <path id="faceShape" d="M300 330 Q292 225 380 172 Q500 140 622 160 Q722 192 737 300 Q747 420 722 540 Q702 662 640 730 Q582 782 510 772 Q420 762 370 692 Q322 622 306 500 Z"/>
+
+  <!-- Eye openings, also used to clip the upturned irises -->
+  <clipPath id="eyeClipL"><path d="M392 330 Q414 300 446 302 Q478 304 492 326 Q470 344 440 346 Q408 344 392 330Z"/></clipPath>
+  <clipPath id="eyeClipR"><path d="M604 316 Q622 292 652 292 Q682 294 698 314 Q680 334 650 336 Q620 334 604 316Z"/></clipPath>
+
+  <filter id="pixelate" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+    <feFlood x="8" y="8" width="2" height="2"/>
+    <feComposite width="18" height="18"/>
+    <feTile result="grid"/>
+    <feComposite in="SourceGraphic" in2="grid" operator="in"/>
+    <feMorphology operator="dilate" radius="9"/>
+  </filter>
+  <filter id="rough" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+    <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="7"/>
+    <feDisplacementMap in="SourceGraphic" scale="7"/>
+  </filter>
+  <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>
+
+<image class="origImg" href="421.jpg" width="1024" height="1024"/>
+
+<g class="fx">
+  <!-- ===== Background ===== -->
+  <rect width="1024" height="1024" fill="url(#sky)"/>
+  <rect class="halftone" width="1024" height="1024" fill="url(#dotsSky)"/>
+  <g class="bgfill">
+    <path class="mtnA s" d="M-10 640 Q60 540 120 490 Q150 462 168 455 Q200 470 250 540 L250 1034 L-10 1034Z"/>
+    <path class="mtnB s" d="M-10 770 Q90 660 250 630 L250 1034 L-10 1034Z"/>
+    <path class="mtnC s" d="M700 600 Q820 548 1034 530 L1034 1034 L700 1034Z"/>
+    <path class="bush s" d="M700 640 Q730 590 790 600 Q820 560 870 575 Q900 520 950 540 Q990 500 1034 520 L1034 880 L700 820Z"/>
+    <g class="flower">
+      <circle cx="770" cy="606" r="7"/><circle cx="852" cy="545" r="6"/><circle cx="912" cy="590" r="7"/>
+      <circle cx="975" cy="566" r="5"/><circle cx="820" cy="660" r="6"/><circle cx="944" cy="640" r="6"/>
+    </g>
+  </g>
+
+  <!-- ===== Body ===== -->
+  <path class="robe s" d="M-10 1034 L-10 875 Q70 828 215 792 L330 760 L520 900 L700 760 Q880 786 1034 868 L1034 1034Z"/>
+  <path class="robeShade shade" d="M760 820 Q880 860 1034 930 L1034 1034 L820 1034 Q800 900 760 820Z"/>
+  <path class="d" d="M120 900 Q170 950 190 1024 M880 900 Q900 960 890 1024"/>
+
+  <!-- Neck -->
+  <path class="skin s" d="M355 640 Q362 760 402 792 L520 842 L640 782 Q672 740 672 640 Z"/>
+  <path class="skinShade shade" d="M380 700 Q440 780 520 800 Q600 790 655 720 Q640 770 600 800 L520 842 L420 800Z"/>
+
+  <!-- White inner collar -->
+  <path class="collar s" d="M318 682 Q400 784 516 834 Q612 782 692 680 L724 800 L648 1034 L466 1034 L282 802Z"/>
+  <path class="d" d="M516 834 L560 1034"/>
+
+  <!-- Scarf wrapped around neck (two plaid bands) -->
+  <path class="plaid s" d="M232 690 L318 676 Q398 812 476 900 L548 1034 L418 1034 Q350 930 270 830Z"/>
+  <path class="plaid s" d="M668 688 L700 676 Q736 800 756 1034 L640 1034 Q684 860 668 688Z"/>
+
+  <!-- ===== Head ===== -->
+  <!-- Left scarf tail hanging behind ear -->
+  <path class="plaid s" d="M190 178 L238 186 L236 328 L176 432 L136 418 L184 320Z"/>
+  <path class="plaid s" d="M226 592 L300 602 L322 700 L304 900 L242 884 L234 700Z"/>
+
+  <!-- Big ears (left rounded, right pointed) -->
+  <path class="skin s" d="M302 418 Q262 358 202 360 Q150 372 158 442 Q166 522 222 582 Q252 616 288 606 Q312 590 306 540Z"/>
+  <path class="skinDeep" d="M282 440 Q244 402 212 410 Q190 430 200 482 Q216 532 256 562 Q278 540 272 500Z"/>
+  <path class="skinShade shade" d="M222 582 Q252 616 288 606 Q300 600 304 580 Q270 590 240 560Z"/>
+  <path class="d" d="M282 440 Q244 402 212 410 Q190 430 200 482 Q216 532 256 562"/>
+
+  <path class="skin s" d="M728 398 Q762 360 804 340 Q824 380 814 442 Q804 522 772 572 Q752 588 736 562Z"/>
+  <path class="skinDeep" d="M746 420 Q772 392 796 376 Q796 432 782 490 Q766 530 750 520Z"/>
+  <path class="d" d="M746 420 Q772 392 796 376 Q796 432 782 490"/>
+
+  <!-- Face -->
+  <use href="#faceShape" class="skin s"/>
+  <use href="#faceShape" class="halftone" fill="url(#dots)"/>
+  <!-- Face shading -->
+  <path class="skinShade shade" d="M306 500 Q300 420 310 360 Q340 450 372 560 Q392 640 440 720 Q390 700 360 660 Q320 600 306 500Z"/>
+  <path class="skinShade shade" d="M700 420 Q730 480 720 560 Q700 660 640 730 Q680 640 690 540Z"/>
+  <path class="skinShade shade" d="M532 330 Q520 380 518 410 L548 404 Q552 360 560 330Z"/>
+
+  <!-- Temple hair under headscarf -->
+  <path class="hair" d="M292 300 Q300 360 296 440 Q284 400 280 360Z"/>
+  <path class="hair" d="M726 250 Q742 300 740 400 Q730 360 718 300Z"/>
+
+  <!-- Headscarf -->
+  <path class="cloth s" d="M222 382 Q214 240 300 140 Q400 52 560 56 Q682 66 716 172 Q726 232 732 302 Q702 232 640 192 Q520 150 400 176 Q322 202 296 302 Q286 352 292 388Z"/>
+  <path class="clothShade shade" d="M222 382 Q216 300 250 220 Q260 300 292 388Z"/>
+  <path class="clothShade shade" d="M640 192 Q700 220 732 302 Q720 210 690 160 Q680 180 640 192Z"/>
+  <path class="d cloth-d" d="M330 140 Q420 110 520 112 M600 90 Q660 110 690 160 M258 230 Q300 170 360 150"/>
+  <!-- Knot on the left -->
+  <path class="cloth s" d="M150 192 Q158 160 212 164 L246 176 L240 262 Q192 274 150 258Z"/>
+  <path class="d cloth-d" d="M168 200 Q200 192 232 200 M170 232 Q205 228 236 236"/>
+
+  <!-- Brows: inner ends raised (worried) -->
+  <path class="brow" d="M360 292 Q430 252 524 244 Q526 262 504 268 Q432 272 366 306Z"/>
+  <path class="brow" d="M578 248 Q652 234 720 264 L722 280 Q652 256 586 266Z"/>
+  <path class="d" d="M470 220 Q520 212 560 222 M480 238 Q520 232 556 238" opacity=".45"/>
+
+  <!-- Eyes: irises pushed up -> looking upward -->
+  <g>
+    <path class="eyeW s" d="M392 330 Q414 300 446 302 Q478 304 492 326 Q470 344 440 346 Q408 344 392 330Z"/>
+    <g clip-path="url(#eyeClipL)">
+      <circle class="iris" cx="446" cy="314" r="21"/>
+      <circle class="pupil" cx="446" cy="311" r="9.5"/>
+      <circle class="hi" cx="454" cy="314" r="4.5"/>
+    </g>
+    <path class="d" d="M388 330 Q412 294 448 296 Q482 300 496 326"/>
+    <path class="d" d="M404 356 Q440 368 478 352" opacity=".5"/>
+  </g>
+  <g>
+    <path class="eyeW s" d="M604 316 Q622 292 652 292 Q682 294 698 314 Q680 334 650 336 Q620 334 604 316Z"/>
+    <g clip-path="url(#eyeClipR)">
+      <circle class="iris" cx="650" cy="303" r="21"/>
+      <circle class="pupil" cx="650" cy="300" r="9.5"/>
+      <circle class="hi" cx="658" cy="303" r="4.5"/>
+    </g>
+    <path class="d" d="M600 316 Q620 284 654 286 Q688 290 702 314"/>
+    <path class="d" d="M616 346 Q650 356 686 340" opacity=".5"/>
+  </g>
+
+  <!-- Nose -->
+  <path class="skin s" d="M528 392 Q490 432 494 466 Q512 496 570 488 Q630 496 652 466 Q654 430 612 392 Q572 374 528 392Z"/>
+  <path class="skinShade shade" d="M494 466 Q512 496 570 488 Q630 496 652 466 Q616 476 570 472 Q526 476 494 466Z"/>
+  <ellipse class="dark" cx="540" cy="472" rx="18" ry="7.5"/>
+  <ellipse class="dark" cx="610" cy="470" rx="18" ry="7.5"/>
+  <path class="d" d="M530 340 Q520 380 524 404 M600 400 Q612 380 604 340" opacity=".55"/>
+
+  <!-- Philtrum -->
+  <path class="d" d="M556 488 Q552 506 556 520 M590 486 Q596 504 594 518" opacity=".5"/>
+
+  <!-- Mustache -->
+  <path class="stache" d="M452 578 Q476 534 556 520 Q610 510 652 524 Q694 538 704 562 Q662 536 600 532 Q520 536 468 578Z"/>
+
+  <!-- Sausage lips (the signature) -->
+  <path class="lipU lipLine" d="M444 596 Q436 548 520 538 Q624 522 700 542 Q720 566 706 590 Q624 602 540 606 Q478 616 444 596Z"/>
+  <path class="dark" d="M456 608 Q540 598 620 598 Q672 596 704 590 Q668 612 600 614 Q520 620 456 608Z"/>
+  <path class="lipL lipLine" d="M454 626 Q460 600 540 604 Q624 598 696 594 Q716 628 680 652 Q604 674 500 670 Q450 660 454 626Z"/>
+  <path class="lipHi" d="M492 560 Q560 546 630 546"/>
+  <path class="lipHi" d="M478 636 Q520 626 566 628"/>
+  <path class="lipHi" d="M612 622 Q646 616 670 618" opacity=".5"/>
+
+  <!-- Chin crease -->
+  <path class="d" d="M488 690 Q520 708 560 702" opacity=".45"/>
+
+  <!-- Theme decorations -->
+  <rect class="scan" width="1024" height="1024" fill="url(#scanlines)"/>
+</g>
+
+<!-- Ink theme seal stamp (kept outside the rough filter for crisp edges) -->
+<g class="seal" transform="translate(860 80)">
+  <rect width="96" height="96" rx="6" fill="#b8322a"/>
+  <text x="48" y="44" text-anchor="middle" font-size="34" font-family="Songti SC, STSong, serif" fill="#f6eee0">四二</text>
+  <text x="48" y="82" text-anchor="middle" font-size="34" font-family="Songti SC, STSong, serif" fill="#f6eee0">一印</text>
+</g>
+</svg>
+</div>
+
+<div class="bar" id="bar"></div>
+<div class="bar"><button id="dl">下载当前 SVG</button></div>
+<div class="hint">数字键 1–7 切换风格</div>
+
+<script>
+  const THEMES = [
+    ["orig", "原图"],
+    ["flat", "平涂写实"],
+    ["line", "线稿"],
+    ["pop", "波普"],
+    ["ink", "水墨"],
+    ["neon", "霓虹"],
+    ["pixel", "像素"],
+  ];
+  const art = document.getElementById("art");
+  const bar = document.getElementById("bar");
+
+  function setTheme(name) {
+    art.setAttribute("class", name);
+    dl.disabled = name === "orig"; // exported SVG would reference an external image
+    for (const b of bar.children) b.setAttribute("aria-pressed", b.dataset.theme === name);
+    history.replaceState(null, "", "#" + name);
+  }
+
+  for (const [key, label] of THEMES) {
+    const b = document.createElement("button");
+    b.dataset.theme = key;
+    b.textContent = label;
+    b.onclick = () => setTheme(key);
+    bar.append(b);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    const i = Number(e.key) - 1;
+    if (THEMES[i]) setTheme(THEMES[i][0]);
+  });
+
+  // The SVG embeds its own stylesheet, so the exported file is self-contained
+  const dl = document.getElementById("dl");
+  dl.onclick = () => {
+    const blob = new Blob([new XMLSerializer().serializeToString(art)], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `avatar-421-${art.getAttribute("class")}.svg`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const initial = location.hash.slice(1);
+  setTheme(THEMES.some(([k]) => k === initial) ? initial : "orig");
+</script>
+</body>
+</html>
