@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>altmanlib</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@300;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #e8452c;
+    --cream: #fbf1e1;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: var(--red);
+    color: var(--cream);
+    font-family: "Oxanium", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* Full-width poster type; size follows the viewport so it always fills the width */
+  h1 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 19vw;
+    line-height: 0.78;
+    letter-spacing: -0.04em;
+    text-transform: lowercase;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  @media (max-aspect-ratio: 1/1) {
+    h1 { font-size: 36vw; }
+  }
+</style>
+</head>
+<body>
+  <h1>altmanlib</h1>
+</body>
+</html>
