@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Android 现代库栈 · 科普幻灯</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --void: #070b16;
+      --ink: #0e1526;
+      --panel: #151d31;
+      --line: #2a3550;
+      --chalk: #eaf0ff;
+      --mute: #93a0b8;
+      --phosphor: #5ce1c5;
+      --ember: #ffb454;
+      --lens: #7aa2ff;
+      --rose: #ff7a9a;
+      --support: #6b7280;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--void);
+      color: var(--chalk);
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(900px 500px at 12% -10%, rgba(122, 162, 255, 0.18), transparent 60%),
+        radial-gradient(700px 420px at 100% 0%, rgba(92, 225, 197, 0.12), transparent 55%),
+        linear-gradient(180deg, #0a1020 0%, var(--void) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* subtle grid */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(122, 162, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(122, 162, 255, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at center, black 35%, transparent 80%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .deck {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 28px 28px 88px;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 28px 28px 88px;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(18px) scale(0.985);
+      transition: opacity 420ms ease, transform 420ms ease;
+    }
+    .slide.active {
+      display: flex;
+      opacity: 1;
+      transform: none;
+    }
+    .slide.exit {
+      display: flex;
+      opacity: 0;
+      transform: translateY(-12px) scale(0.99);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--mute);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 28px;
+      height: 2px;
+      background: currentColor;
+      opacity: 0.7;
+    }
+
+    h1, h2 {
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 16px;
+      line-height: 1.08;
+    }
+    h1 { font-size: clamp(2.4rem, 5.5vw, 4.2rem); }
+    h2 { font-size: clamp(1.8rem, 4vw, 3rem); }
+
+    .lede {
+      font-size: clamp(1.05rem, 2vw, 1.35rem);
+      color: var(--mute);
+      max-width: 42rem;
+      line-height: 1.55;
+      margin: 0 0 28px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 40%), var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .mono {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      font-size: 0.9rem;
+      color: var(--chalk);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--phosphor);
+      box-shadow: 0 0 12px var(--phosphor);
+    }
+
+    /* ---- title strata ---- */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 28px;
+      align-items: center;
+    }
+    @media (max-width: 860px) {
+      .hero-grid, .two, .three { grid-template-columns: 1fr !important; }
+      .slide { overflow: auto; }
+    }
+
+    .strata {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 10px;
+      position: relative;
+    }
+    .strata-layer {
+      border-radius: 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: var(--ink);
+      transform: translateX(-12px);
+      opacity: 0;
+      animation: rise-in 700ms cubic-bezier(.2,.8,.2,1) forwards;
+    }
+    .strata.active .strata-layer { animation-play-state: running; }
+    .strata-layer:nth-child(1) { animation-delay: 80ms; border-color: #4b5563; }
+    .strata-layer:nth-child(2) { animation-delay: 180ms; border-color: rgba(122,162,255,.45); }
+    .strata-layer:nth-child(3) { animation-delay: 280ms; border-color: rgba(92,225,197,.45); }
+    .strata-layer:nth-child(4) { animation-delay: 380ms; border-color: rgba(255,180,84,.45); }
+    .strata-kicker {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin-bottom: 4px;
+    }
+    .strata-title { font-weight: 700; font-size: 1.05rem; }
+    .strata-note { color: var(--mute); font-size: 0.9rem; margin-top: 2px; }
+
+    @keyframes rise-in {
+      to { opacity: 1; transform: none; }
+    }
+
+    /* ---- morph cards ---- */
+    .morph {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+    .code-card {
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .code-card .label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--mute);
+    }
+    .code-line {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .code-line .old { color: var(--rose); text-decoration: line-through; opacity: 0.75; }
+    .code-line .new { color: var(--phosphor); }
+    .arrow {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      color: var(--ember);
+      background: rgba(255,180,84,0.08);
+      position: relative;
+    }
+    .arrow::after {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1px dashed rgba(255,180,84,0.35);
+      animation: spin 10s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .scanline {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--ember), transparent);
+      top: -10%;
+      opacity: 0;
+    }
+    .slide.active .scanline {
+      animation: scan 1.8s ease-in-out 0.4s 1 forwards;
+    }
+    @keyframes scan {
+      0% { top: 8%; opacity: 0; }
+      15% { opacity: 1; }
+      100% { top: 88%; opacity: 0; }
+    }
+
+    /* ---- cards grid ---- */
+    .two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .three {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .card {
+      padding: 20px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(14, 21, 38, 0.85);
+      min-height: 160px;
+      transform: translateY(14px);
+      opacity: 0;
+    }
+    .slide.active .card {
+      animation: rise-in 650ms cubic-bezier(.2,.8,.2,1) forwards;
+    }
+    .slide.active .card:nth-child(1) { animation-delay: 80ms; }
+    .slide.active .card:nth-child(2) { animation-delay: 160ms; }
+    .slide.active .card:nth-child(3) { animation-delay: 240ms; }
+    .card h3 {
+      margin: 0 0 10px;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .card p {
+      margin: 0;
+      color: var(--mute);
+      line-height: 1.5;
+      font-size: 0.98rem;
+    }
+    .card.compose { border-top: 3px solid var(--phosphor); }
+    .card.lifecycle { border-top: 3px solid var(--ember); }
+    .card.camerax { border-top: 3px solid var(--lens); }
+
+    /* lifecycle machine */
+    .life-track {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .life-state {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.85rem;
+      color: var(--mute);
+      background: var(--ink);
+      opacity: 0.45;
+      transform: scale(0.96);
+    }
+    .slide.active .life-state {
+      animation: life-pulse 4.8s ease-in-out infinite;
+    }
+    .slide.active .life-state:nth-child(1) { animation-delay: 0s; }
+    .slide.active .life-state:nth-child(2) { animation-delay: 0.8s; }
+    .slide.active .life-state:nth-child(3) { animation-delay: 1.6s; }
+    .slide.active .life-state:nth-child(4) { animation-delay: 2.4s; }
+    .slide.active .life-state:nth-child(5) { animation-delay: 3.2s; }
+    .slide.active .life-state:nth-child(6) { animation-delay: 4.0s; }
+    @keyframes life-pulse {
+      0%, 12%, 100% { opacity: 0.35; transform: scale(0.96); border-color: var(--line); color: var(--mute); box-shadow: none; }
+      6% { opacity: 1; transform: scale(1.04); border-color: var(--ember); color: var(--chalk); box-shadow: 0 0 24px rgba(255,180,84,0.25); }
+    }
+
+    /* camera viewfinder */
+    .viewfinder {
+      position: relative;
+      aspect-ratio: 16 / 10;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(122,162,255,0.45);
+      background:
+        radial-gradient(circle at 50% 45%, rgba(122,162,255,0.18), transparent 45%),
+        repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(122,162,255,0.05) 19px),
+        var(--ink);
+    }
+    .vf-corner {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border: 2px solid var(--lens);
+    }
+    .vf-corner.tl { top: 14px; left: 14px; border-right: 0; border-bottom: 0; }
+    .vf-corner.tr { top: 14px; right: 14px; border-left: 0; border-bottom: 0; }
+    .vf-corner.bl { bottom: 14px; left: 14px; border-right: 0; border-top: 0; }
+    .vf-corner.br { bottom: 14px; right: 14px; border-left: 0; border-top: 0; }
+    .vf-reticle {
+      position: absolute;
+      inset: 28% 30%;
+      border: 1.5px solid rgba(92,225,197,0.85);
+      border-radius: 8px;
+      box-shadow: 0 0 0 999px rgba(7,11,22,0.35);
+      animation: reticle 2.4s ease-in-out infinite;
+    }
+    @keyframes reticle {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50% { transform: scale(1.04); opacity: 1; }
+    }
+    .vf-beam {
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--phosphor), transparent);
+      animation: beam 2.2s linear infinite;
+      top: 20%;
+    }
+    @keyframes beam {
+      0% { top: 22%; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 78%; opacity: 0; }
+    }
+    .vf-caption {
+      position: absolute;
+      left: 16px;
+      bottom: 14px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--lens);
+      letter-spacing: 0.06em;
+    }
+
+    /* flow */
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      position: relative;
+    }
+    .flow-step {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--ink);
+      position: relative;
+    }
+    .flow-step .n {
+      font-family: "IBM Plex Mono", monospace;
+      color: var(--mute);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .flow-step strong {
+      display: block;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-size: 1.2rem;
+      margin-bottom: 6px;
+    }
+    .flow-step p { margin: 0; color: var(--mute); line-height: 1.45; }
+    .flow-step.compose { box-shadow: inset 0 3px 0 var(--phosphor); }
+    .flow-step.lifecycle { box-shadow: inset 0 3px 0 var(--ember); }
+    .flow-step.camerax { box-shadow: inset 0 3px 0 var(--lens); }
+    .flow-pipe {
+      position: absolute;
+      top: 42%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--phosphor), var(--ember), var(--lens));
+      opacity: 0.35;
+      left: 12%;
+      right: 12%;
+      z-index: -1;
+    }
+
+    .checklist {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 12px;
+    }
+    .checklist li {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(14,21,38,0.8);
+    }
+    .checklist .mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: rgba(92,225,197,0.12);
+      color: var(--phosphor);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+    }
+
+    /* chrome */
+    .chrome {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 28px 22px;
+      background: linear-gradient(180deg, transparent, rgba(7,11,22,0.92) 35%);
+      backdrop-filter: blur(8px);
+    }
+    .progress {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: 55%;
+    }
+    .progress button {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 0;
+      background: #334155;
+      cursor: pointer;
+      padding: 0;
+    }
+    .progress button[aria-current="true"] {
+      background: var(--chalk);
+      box-shadow: 0 0 0 4px rgba(234,240,255,0.12);
+      width: 22px;
+      border-radius: 999px;
+    }
+    .nav {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .nav button, .hint kbd {
+      font: inherit;
+    }
+    .nav button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--chalk);
+      border-radius: 999px;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    .nav button:hover { border-color: var(--mute); }
+    .nav button:focus-visible {
+      outline: 2px solid var(--lens);
+      outline-offset: 2px;
+    }
+    .nav .count {
+      font-family: "IBM Plex Mono", monospace;
+      color: var(--mute);
+      font-size: 13px;
+      min-width: 4.5rem;
+      text-align: center;
+    }
+    .hint {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      z-index: 5;
+      color: var(--mute);
+      font-size: 12px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+    kbd {
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 1px 6px;
+      background: var(--ink);
+      color: var(--chalk);
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.98rem;
+    }
+    .compare-table th, .compare-table td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .compare-table th {
+      color: var(--mute);
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 500;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .compare-table td:first-child { color: var(--mute); width: 28%; }
+
+    .big-quote {
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      max-width: 34rem;
+      margin: 8px 0 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .slide, .card, .strata-layer, .life-state, .vf-reticle, .vf-beam, .arrow::after, .scanline {
+        animation: none !important;
+        transition: none !important;
+      }
+      .slide { opacity: 1; transform: none; }
+      .card, .strata-layer { opacity: 1; transform: none; }
+      .life-state { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hint">键盘 <kbd>←</kbd> <kbd>→</kbd> / <kbd>空格</kbd> · 点击圆点跳转</div>
+
+  <main class="deck" id="deck" aria-live="polite">
+    <!-- 1 -->
+    <section class="slide active" data-title="封面">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">CloudPay 旁听课 · 01</div>
+          <h1>Android 现代库栈</h1>
+          <p class="lede">用一张「地层剖面」把 Jetifier、AndroidX、Jetpack，以及 Compose / Lifecycle / CameraX 讲清楚——它们不是三个平行名词，而是一层层叠起来的。</p>
+          <div class="tag-row">
+            <span class="pill"><span class="dot"></span>自用收款通知 App 语境</span>
+            <span class="pill mono">androidx.*</span>
+          </div>
+        </div>
+        <div class="panel strata" aria-hidden="true">
+          <div class="strata-layer">
+            <div class="strata-kicker">表层 · 你写的功能</div>
+            <div class="strata-title" style="color: var(--ember)">Compose · Lifecycle · CameraX</div>
+            <div class="strata-note">界面 / 生命周期 / 相机</div>
+          </div>
+          <div class="strata-layer">
+            <div class="strata-kicker">目录</div>
+            <div class="strata-title" style="color: var(--phosphor)">Jetpack</div>
+            <div class="strata-note">官方推荐组件合集</div>
+          </div>
+          <div class="strata-layer">
+            <div class="strata-kicker">包名与发行</div>
+            <div class="strata-title" style="color: var(--lens)">AndroidX</div>
+            <div class="strata-note">androidx.* Maven 坐标</div>
+          </div>
+          <div class="strata-layer">
+            <div class="strata-kicker">历史层</div>
+            <div class="strata-title" style="color: var(--support)">Support Library</div>
+            <div class="strata-note">android.support.* · 已退役</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="slide" data-title="总览">
+      <div class="eyebrow">地图</div>
+      <h2>先记住这一句</h2>
+      <p class="lede">Support Library 是旧世界；AndroidX 是新地址；Jetpack 是官方精选目录；Compose / Lifecycle / CameraX 是目录里三本常用说明书。</p>
+      <div class="panel">
+        <table class="compare-table">
+          <thead>
+            <tr><th>名字</th><th>它是什么</th><th>你怎么碰到它</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Support Library</td>
+              <td>旧兼容库</td>
+              <td class="mono">android.support.*</td>
+            </tr>
+            <tr>
+              <td>AndroidX</td>
+              <td>新包名与发行体系</td>
+              <td class="mono">androidx.*</td>
+            </tr>
+            <tr>
+              <td>Jetpack</td>
+              <td>官方推荐组件合集</td>
+              <td>Compose、CameraX、Lifecycle…</td>
+            </tr>
+            <tr>
+              <td>Jetifier</td>
+              <td>迁移期翻译器</td>
+              <td>把旧依赖改写成 AndroidX</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="slide" data-title="Jetifier">
+      <div class="eyebrow">过渡工具</div>
+      <h2>Jetifier：依赖的「改名扫描仪」</h2>
+      <p class="lede">构建时扫过第三方 AAR/JAR，把里面的 <span class="mono">android.support.*</span> 字节码引用改写成 <span class="mono">androidx.*</span>。它不教你写代码，只负责让新旧库能编在一起。</p>
+      <div class="morph">
+        <div class="panel code-card">
+          <div class="scanline"></div>
+          <div class="label">Before</div>
+          <div class="code-line"><span class="old">android.support.v7.app.AppCompatActivity</span></div>
+          <div class="code-line"><span class="old">android.support.v4.app.Fragment</span></div>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="panel code-card">
+          <div class="label">After</div>
+          <div class="code-line"><span class="new">androidx.appcompat.app.AppCompatActivity</span></div>
+          <div class="code-line"><span class="new">androidx.fragment.app.Fragment</span></div>
+        </div>
+      </div>
+      <div class="tag-row" style="margin-top:18px">
+        <span class="pill">代价：构建变慢</span>
+        <span class="pill">CloudPay：依赖已是 AndroidX → 可关闭</span>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="slide" data-title="AndroidX">
+      <div class="eyebrow">发行体系</div>
+      <h2>AndroidX：新地址门牌</h2>
+      <p class="lede">Google 把 Support Library 整体搬迁到 <span class="mono">androidx.*</span>，让每个库能独立版本演进，并和 Android 平台 API 划清边界。</p>
+      <div class="two">
+        <div class="panel">
+          <div class="label mono" style="color:var(--mute);margin-bottom:10px">旧 · Support</div>
+          <div class="code-line" style="margin-bottom:8px">android.support.v4…</div>
+          <div class="code-line" style="margin-bottom:8px">android.support.v7…</div>
+          <p style="color:var(--mute);margin:14px 0 0;line-height:1.5">版本和平台纠缠，停在 28.x，不再前进。</p>
+        </div>
+        <div class="panel" style="border-color:rgba(122,162,255,.45)">
+          <div class="label mono" style="color:var(--lens);margin-bottom:10px">新 · AndroidX</div>
+          <div class="code-line" style="margin-bottom:8px;color:var(--lens)">androidx.appcompat…</div>
+          <div class="code-line" style="margin-bottom:8px;color:var(--lens)">androidx.lifecycle…</div>
+          <p style="color:var(--mute);margin:14px 0 0;line-height:1.5">各库独立发版，Jetpack 全挂在这套门牌下。</p>
+        </div>
+      </div>
+      <p class="big-quote" style="margin-top:22px">开启 <span class="mono" style="color:var(--phosphor)">android.useAndroidX=true</span> 是现代工程的默认姿势，不是可选项。</p>
+    </section>
+
+    <!-- 5 -->
+    <section class="slide" data-title="Jetpack">
+      <div class="eyebrow">官方目录</div>
+      <h2>Jetpack：精选组件全家桶</h2>
+      <p class="lede">它不是新语言，也不是替代 SDK 的操作系统。它是 Google 说「做 App 时优先用这些库」的产品名；落地坐标几乎都是 AndroidX。</p>
+      <div class="three">
+        <div class="card compose">
+          <h3>UI</h3>
+          <p>Compose、AppCompat、Activity——屏幕上看得见的东西。</p>
+        </div>
+        <div class="card lifecycle">
+          <h3>架构</h3>
+          <p>Lifecycle、ViewModel、Room、Navigation——状态与结构。</p>
+        </div>
+        <div class="card camerax">
+          <h3>行为</h3>
+          <p>CameraX、WorkManager、通知相关——设备能力封装。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="slide" data-title="Compose">
+      <div class="eyebrow" style="color:var(--phosphor)">UI 层</div>
+      <h2>Compose：用函数画界面</h2>
+      <p class="lede">声明式 UI：你描述「现在长什么样」，状态一变，界面按新状态更新。不再靠 XML 布局 + <span class="mono">findViewById</span> 手工拼装。</p>
+      <div class="two">
+        <div class="panel code-card">
+          <div class="label">CloudPay · MainScreen.kt</div>
+          <div class="code-line" style="color:var(--phosphor)">@Composable</div>
+          <div class="code-line">fun MainScreen(viewModel: MainViewModel)</div>
+          <div class="code-line" style="color:var(--mute)">Column / Card / Text / MaterialTheme</div>
+        </div>
+        <div class="panel">
+          <ul class="checklist">
+            <li><span class="mark">1</span><div><strong>状态驱动</strong><br /><span style="color:var(--mute)">uiState 变了，Composable 重绘</span></div></li>
+            <li><span class="mark">2</span><div><strong>Material 3</strong><br /><span style="color:var(--mute)">按钮、顶栏、主题开箱即用</span></div></li>
+            <li><span class="mark">3</span><div><strong>挂载点</strong><br /><span style="color:var(--mute)">Activity 里 setContent { … }</span></div></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section class="slide" data-title="Lifecycle">
+      <div class="eyebrow" style="color:var(--ember)">生命周期</div>
+      <h2>Lifecycle：该不该跑</h2>
+      <p class="lede">告诉代码：界面现在是创建、可见、还是销毁。配合 ViewModel 存放状态，旋转屏幕也不丢；配合 <span class="mono">repeatOnLifecycle</span>，不可见时停止收集 Flow。</p>
+      <div class="panel">
+        <div class="life-track" aria-label="生命周期状态动画">
+          <div class="life-state">CREATED</div>
+          <div class="life-state">STARTED</div>
+          <div class="life-state">RESUMED</div>
+          <div class="life-state">PAUSED</div>
+          <div class="life-state">STOPPED</div>
+          <div class="life-state">DESTROYED</div>
+        </div>
+      </div>
+      <div class="two" style="margin-top:18px">
+        <div class="panel">
+          <div class="label mono" style="color:var(--ember);margin-bottom:8px">CloudPay</div>
+          <p style="margin:0;line-height:1.55;color:var(--mute)"><span class="mono" style="color:var(--chalk)">MainViewModel</span> 托管主页状态；<span class="mono" style="color:var(--chalk)">repeatOnLifecycle(STARTED)</span> 只在可见时处理副作用。</p>
+        </div>
+        <div class="panel">
+          <p class="big-quote" style="font-size:1.35rem;margin:0">Lifecycle 管「该不该跑」<br />ViewModel 管「跑的时候状态放哪」</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section class="slide" data-title="CameraX">
+      <div class="eyebrow" style="color:var(--lens)">相机</div>
+      <h2>CameraX：厂商差异的挡板</h2>
+      <p class="lede">把各家 Camera2 的坑挡在后面。预览、拍照、逐帧分析用统一 API；还能和 Lifecycle 绑定，页面销毁自动关相机。</p>
+      <div class="two">
+        <div class="viewfinder" aria-hidden="true">
+          <div class="vf-corner tl"></div>
+          <div class="vf-corner tr"></div>
+          <div class="vf-corner bl"></div>
+          <div class="vf-corner br"></div>
+          <div class="vf-reticle"></div>
+          <div class="vf-beam"></div>
+          <div class="vf-caption">IMAGE_ANALYSIS · QR</div>
+        </div>
+        <div>
+          <ul class="checklist">
+            <li><span class="mark" style="color:var(--lens);background:rgba(122,162,255,.12)">P</span><div><strong>Preview</strong><br /><span style="color:var(--mute)">取景预览</span></div></li>
+            <li><span class="mark" style="color:var(--lens);background:rgba(122,162,255,.12)">C</span><div><strong>ImageCapture</strong><br /><span style="color:var(--mute)">拍照</span></div></li>
+            <li><span class="mark" style="color:var(--lens);background:rgba(122,162,255,.12)">A</span><div><strong>ImageAnalysis</strong><br /><span style="color:var(--mute)">逐帧分析 → ML Kit 解二维码</span></div></li>
+          </ul>
+          <p style="color:var(--mute);margin:16px 4px 0;line-height:1.5">CloudPay 用它扫配置二维码：<span class="mono" style="color:var(--chalk)">ui/scan</span> + <span class="mono" style="color:var(--chalk)">camera-*</span> + barcode-scanning。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section class="slide" data-title="协作">
+      <div class="eyebrow">串起来</div>
+      <h2>扫码页上的三人分工</h2>
+      <p class="lede">同一件事拆成三条线：谁画界面、谁决定开关时机、谁驱动硬件。</p>
+      <div class="flow">
+        <div class="flow-pipe" aria-hidden="true"></div>
+        <div class="flow-step compose">
+          <div class="n">COMPOSE</div>
+          <strong style="color:var(--phosphor)">画出来</strong>
+          <p>权限提示、取景框、结果反馈</p>
+        </div>
+        <div class="flow-step lifecycle">
+          <div class="n">LIFECYCLE</div>
+          <strong style="color:var(--ember)">管开关</strong>
+          <p>页面可见才开相机，离开就停</p>
+        </div>
+        <div class="flow-step camerax">
+          <div class="n">CAMERAX</div>
+          <strong style="color:var(--lens)">驱动硬件</strong>
+          <p>预览 + 帧分析送给 ML Kit</p>
+        </div>
+      </div>
+      <p class="big-quote" style="margin-top:28px">Compose 负责看见；Lifecycle 负责时机；CameraX 负责镜头。</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="slide" data-title="回到项目">
+      <div class="eyebrow">CloudPay</div>
+      <h2>回到你们的依赖表</h2>
+      <p class="lede">幻灯片里的名字，都能在 <span class="mono">app/build.gradle</span> 里对上号。</p>
+      <div class="panel">
+        <ul class="checklist">
+          <li><span class="mark">UI</span><div><span class="mono">compose-bom / material3 / activity-compose</span><br /><span style="color:var(--mute)">主界面与主题</span></div></li>
+          <li><span class="mark" style="color:var(--ember);background:rgba(255,180,84,.12)">LC</span><div><span class="mono">lifecycle-runtime-ktx / lifecycle-viewmodel-ktx</span><br /><span style="color:var(--mute)">MainViewModel 与可见期收集</span></div></li>
+          <li><span class="mark" style="color:var(--lens);background:rgba(122,162,255,.12)">CX</span><div><span class="mono">camera-core / camera2 / lifecycle / view</span><br /><span style="color:var(--mute)">扫码配置二维码</span></div></li>
+          <li><span class="mark">✓</span><div>Jetifier 已关闭 · 依赖原生 AndroidX，无需再翻译</div></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="slide" data-title="收束">
+      <div class="eyebrow">带走一句</div>
+      <h2>分层记忆法</h2>
+      <div class="panel" style="margin-top:8px">
+        <p class="big-quote" style="max-width:100%">
+          <span style="color:var(--support)">Support</span> 是过去，
+          <span style="color:var(--lens)">AndroidX</span> 是门牌，
+          <span style="color:var(--phosphor)">Jetpack</span> 是目录，
+          <span style="color:var(--ember)">Compose / Lifecycle / CameraX</span> 是你真正动手的三件工具。
+        </p>
+      </div>
+      <div class="tag-row" style="margin-top:22px">
+        <span class="pill">← → 再翻一遍</span>
+        <span class="pill">android-stack-tutorial/</span>
+      </div>
+    </section>
+  </main>
+
+  <div class="chrome">
+    <div class="progress" id="progress" aria-label="幻灯进度"></div>
+    <div class="nav">
+      <button type="button" id="prev" aria-label="上一页">上一页</button>
+      <div class="count" id="count">1 / 11</div>
+      <button type="button" id="next" aria-label="下一页">下一页</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll(".slide"));
+      const progress = document.getElementById("progress");
+      const count = document.getElementById("count");
+      const prevBtn = document.getElementById("prev");
+      const nextBtn = document.getElementById("next");
+      let index = 0;
+      let locking = false;
+
+      slides.forEach((_, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("aria-label", "第 " + (i + 1) + " 页");
+        b.addEventListener("click", () => go(i));
+        progress.appendChild(b);
+      });
+
+      function go(next) {
+        if (locking) return;
+        next = Math.max(0, Math.min(slides.length - 1, next));
+        if (next === index) {
+          sync();
+          return;
+        }
+        locking = true;
+        const cur = slides[index];
+        const nxt = slides[next];
+        cur.classList.remove("active");
+        cur.classList.add("exit");
+        nxt.classList.add("active");
+        index = next;
+        sync();
+        window.setTimeout(() => {
+          cur.classList.remove("exit");
+          locking = false;
+        }, 420);
+      }
+
+      function sync() {
+        count.textContent = (index + 1) + " / " + slides.length;
+        Array.from(progress.children).forEach((el, i) => {
+          el.setAttribute("aria-current", i === index ? "true" : "false");
+        });
+        document.title = slides[index].dataset.title + " · Android 现代库栈";
+        prevBtn.disabled = index === 0;
+        nextBtn.disabled = index === slides.length - 1;
+      }
+
+      prevBtn.addEventListener("click", () => go(index - 1));
+      nextBtn.addEventListener("click", () => go(index + 1));
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+          e.preventDefault();
+          go(index + 1);
+        } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+          e.preventDefault();
+          go(index - 1);
+        } else if (e.key === "Home") {
+          go(0);
+        } else if (e.key === "End") {
+          go(slides.length - 1);
+        }
+      });
+
+      let touchX = null;
+      window.addEventListener("touchstart", (e) => {
+        touchX = e.changedTouches[0].clientX;
+      }, { passive: true });
+      window.addEventListener("touchend", (e) => {
+        if (touchX == null) return;
+        const dx = e.changedTouches[0].clientX - touchX;
+        touchX = null;
+        if (Math.abs(dx) < 40) return;
+        go(index + (dx < 0 ? 1 : -1));
+      }, { passive: true });
+
+      sync();
+    })();
+  </script>
+</body>
+</html>
